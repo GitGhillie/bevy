@@ -1177,6 +1177,7 @@ name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.atmospheric_fog]
 name = "Atmospheric Fog"

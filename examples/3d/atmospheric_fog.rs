@@ -8,18 +8,24 @@
 //! | `S`                | Toggle Directional Light Fog Influence |
 
 use bevy::{
+    feathers::{
+        controls::checkbox,
+        dark_theme::create_dark_theme,
+        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        tokens, FeathersPlugins,
+    },
+    input_focus::tab_navigation::TabGroup,
     light::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
+    ui::Checked,
+    ui_widgets::{observe, ValueChange},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(
-            Startup,
-            (setup_camera_fog, setup_terrain_scene, setup_instructions),
-        )
-        .add_systems(Update, toggle_system)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
+        .add_systems(Startup, (setup_camera_fog, setup_terrain_scene, setup_ui))
         .run();
 }
 
@@ -84,25 +90,58 @@ fn setup_terrain_scene(
     ));
 }
 
-fn setup_instructions(mut commands: Commands) {
-    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."),
+fn setup_ui(mut commands: Commands) {
+    commands.spawn((
         Node {
+            flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
-            bottom: px(12),
+            row_gap: px(6),
             left: px(12),
+            bottom: px(12),
             ..default()
-        })
-    );
-}
+        },
+        TabGroup::default(),
+        ThemeBackgroundColor(tokens::WINDOW_BG),
+        children![
+            (
+                checkbox(Checked, Spawn((Text::new("Atmospheric Fog"), ThemedText))),
+                observe(
+                    |change: On<ValueChange<bool>>,
+                     mut fog: Single<&mut DistanceFog>,
+                     mut commands: Commands| {
+                        let a = fog.color.alpha();
+                        fog.color.set_alpha(1.0 - a);
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {
-    if keycode.just_pressed(KeyCode::Space) {
-        let a = fog.color.alpha();
-        fog.color.set_alpha(1.0 - a);
-    }
+                        let mut checkbox = commands.entity(change.source);
+                        if change.value {
+                            checkbox.insert(Checked);
+                        } else {
+                            checkbox.remove::<Checked>();
+                        }
+                    }
+                )
+            ),
+            (
+                checkbox(
+                    Checked,
+                    Spawn((Text::new("Directional Light Fog Influence"), ThemedText))
+                ),
+                observe(
+                    |change: On<ValueChange<bool>>,
+                     mut fog: Single<&mut DistanceFog>,
+                     mut commands: Commands| {
+                        let a = fog.directional_light_color.alpha();
+                        fog.directional_light_color.set_alpha(0.5 - a);
 
-    if keycode.just_pressed(KeyCode::KeyS) {
-        let a = fog.directional_light_color.alpha();
-        fog.directional_light_color.set_alpha(0.5 - a);
-    }
+                        let mut checkbox = commands.entity(change.source);
+                        if change.value {
+                            checkbox.insert(Checked);
+                        } else {
+                            checkbox.remove::<Checked>();
+                        }
+                    }
+                )
+            )
+        ],
+    ));
 }
